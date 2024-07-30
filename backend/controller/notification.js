@@ -1,9 +1,11 @@
 import Notification from "../models/notifications.js";
 import express from 'express';
+import ErrorHandler from "../utils/ErrorHandler.js";
+import catchAsyncErrors from "../middleware/catchAsyncErrors.js";
 
 const router = express.Router();
 
-router.post("/notifications", async (req, res) => {
+router.post("/notifications", catchAsyncErrors(async (req, res) => {
   const { fullName, email, contactNumber, flightNumber, notificationType } = req.body;
 
   try {
@@ -21,20 +23,20 @@ router.post("/notifications", async (req, res) => {
       .status(201)
       .json({ message: "Notification preference saved successfully" });
   } catch (error) {
-    res.status(500).json({ message: "Server error" });
+    return next(new ErrorHandler(error.message, 500));
   }
-});
+}));
 
-router.get("/notifications", async (req, res) => {
+router.get("/notifications", catchAsyncErrors(async (req, res) => {
   try {
     const notifications = await Notification.find();
     res.json(notifications);
   } catch (error) {
-    res.status(500).json({ message: "Server error" });
+    return next(new ErrorHandler(error.message, 500));
   }
-});
+}));
 
-router.put("/notifications/:id", async (req, res) => {
+router.put("/notifications/:id", catchAsyncErrors(async (req, res) => {
   const { id } = req.params;
   const { fullName, email, contactNumber, flightNumber, notificationType } = req.body;
 
@@ -55,8 +57,8 @@ router.put("/notifications/:id", async (req, res) => {
 
     res.json({ message: "Notification updated successfully" });
   } catch (error) {
-    res.status(500).json({ message: "Server error" });
+    return next(new ErrorHandler(error.message, 500));
   }
-});
+}));
 
 export default router;

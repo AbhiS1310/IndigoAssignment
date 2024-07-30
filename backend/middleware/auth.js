@@ -1,26 +1,20 @@
 import jwt from 'jsonwebtoken';
-import User from '../models/Auth.js';
+import User from '../models/users.js';
+import catchAsyncErrors from './catchAsyncErrors.js';
+import ErrorHandler from '../utils/ErrorHandler.js';
 
-const authMiddleware = async (req, res, next) => {
-  let token;
+const isAuthenticated = catchAsyncErrors(async (req,res,next) => {
+  const {token} = req.cookies;
 
-  if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
-    try {
-      token = req.headers.authorization.split(' ')[1];
-
-      const decoded = jwt.verify(token, process.env.JWT_SECRET);
-
-      req.user = await User.findById(decoded.userId).select('-password');
-
-      next();
-    } catch (error) {
-      res.status(401).json({ message: 'Not authorized, token failed' });
-    }
+  if(!token){
+      return next(new ErrorHandler("Please login to continue", 401));
   }
 
-  if (!token) {
-    res.status(401).json({ message: 'Not authorized, no token' });
-  }
-};
+  const decoded = jwt.verify(token, process.env.JWT_SECRET_KEY);
 
-export default authMiddleware;
+  req.user = await User.findById(decoded.id);
+
+  next();
+});
+
+export default isAuthenticated;

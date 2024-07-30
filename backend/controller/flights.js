@@ -1,34 +1,36 @@
-import Flight from "../models/Flight.js";
-import sendFlightUpdateNotification from "../utils/notify.js";
+import isAuthenticated from "../middleware/auth.js";
+import catchAsyncErrors from "../middleware/catchAsyncErrors.js";
+import Flight from "../models/flights.js";
+import ErrorHandler from "../utils/ErrorHandler.js";
+import sendFlightUpdateNotification from "../utils/sendMail.js";
 import express from 'express';
 
 const router = express.Router();
 
-router.get("/flights", async (req, res) => {
+router.get("/flights", catchAsyncErrors(async (req, res, next) => {
   try {
     const flights = await Flight.find();
     res.json(flights);
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    return next(new ErrorHandler(error.message, 500));
   }
-});
+}));
 
-router.get("/flights/:id", async (req, res) => {
+router.get("/flights/:id", catchAsyncErrors(async (req, res, next) => {
   try {
     const flight = await Flight.findById(req.params.id);
-    if (flight) {
-      res.json(flight);
-    } else {
-      res.status(404).json({ message: "Flight not found" });
+    if (!flight) { 
+      return next(new ErrorHandler("Flight not found!", 404)); 
     }
+    res.json(flight);
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    return next(new ErrorHandler(error.message, 500));
   }
-});
+}));
 
-router.post("/flights", async (req, res) => {
+router.post("/flights",isAuthenticated, catchAsyncErrors(async (req, res, next) => {
   const newFlight = new Flight(req.body);
-
+  console.log("ading......");
   try {
     const flight = await newFlight.save();
 
@@ -37,15 +39,16 @@ router.post("/flights", async (req, res) => {
       message: `New flight added: ${flight.flightNumber} from ${flight.departure} to ${flight.arrival} on ${flight.date}`,
       date: new Date().toISOString(),
     };
-    Notify.addNotification(notification);
+    // Notify.addNotification(notification);
+    console.log("ading......");
 
     res.status(201).json(flight);
   } catch (error) {
-    res.status(400).json({ message: error.message });
+    return next(new ErrorHandler(error.message, 500));
   }
-});
+}));
 
-router.put("/flights/:id", async (req, res) => {
+router.put("/flights/:id",isAuthenticated,catchAsyncErrors(async (req, res, next) => {
   try {
     const { flightId } = req.params;
     const flightData = req.body;
@@ -56,7 +59,7 @@ router.put("/flights/:id", async (req, res) => {
     }).exec();
 
     if (!updatedFlight)
-      return res.status(404).json({ message: "Flight not found" });
+      return next(new ErrorHandler("Flight not found!", 404));
 
     // Send notification
     await sendFlightUpdateNotification(flightId);
@@ -65,9 +68,8 @@ router.put("/flights/:id", async (req, res) => {
       .status(200)
       .json({ message: "Flight updated successfully", updatedFlight });
   } catch (error) {
-    console.error("Error updating flight:", error);
-    res.status(500).json({ message: "Internal server error" });
+    return next(new ErrorHandler(error.message, 500));
   }
-});
+}));
 
 export default router;
